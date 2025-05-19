@@ -1,0 +1,78 @@
+# Fungsi simulator robot
+def robot_simulator():
+    global robot_x, robot_y, robot_angle, robot_speed, angular_speed
+    
+    clock = pygame.time.Clock()
+    
+    while running:
+        # Handle events pygame
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        
+        # Update kecepatan roda berdasarkan current_pose
+        with pose_lock:
+            pose = current_pose
+        
+        # Atur kecepatan roda berdasarkan pose
+        base_speed = 3
+        if pose == "maju":
+            left_wheel_speed = base_speed
+            right_wheel_speed = base_speed
+        elif pose == "mundur":
+            left_wheel_speed = -base_speed
+            right_wheel_speed = -base_speed
+        elif pose == "kiri":  # Belok kiri
+             left_wheel_speed = -base_speed * 0.3  # Roda kiri lebih lambat
+             right_wheel_speed = base_speed       # Roda kanan normal
+        elif pose == "kanan":  # Belok kanan
+            left_wheel_speed = base_speed       # Roda kiri normal
+            right_wheel_speed = base_speed * 0.3  # Roda kanan lebih lambat
+        elif pose == "rotasikanan":  # Rotasi kanan (putar badan ke kanan)
+            left_wheel_speed = base_speed      # Roda kiri maju
+            right_wheel_speed = -base_speed    # Roda kanan mundur
+        elif pose == "rotasikiri":  # Rotasi kiri (putar badan ke kiri)
+            left_wheel_speed = -base_speed     # Roda kiri mundur
+            right_wheel_speed = base_speed     # Roda kanan maju
+        else:  # stop
+            left_wheel_speed = 0
+            right_wheel_speed = 0
+        
+        # Hitung kecepatan linear dan angular berdasarkan model DDMR
+        linear_speed = (left_wheel_speed + right_wheel_speed) / 2
+        angular_speed = (right_wheel_speed - left_wheel_speed) / wheel_distance
+        
+        # Update posisi dan orientasi
+        robot_angle -= math.degrees(angular_speed)
+        robot_angle %= 360
+        
+        # Hitung komponen x dan y dari kecepatan
+        vel_x = linear_speed * math.cos(math.radians(robot_angle))
+        vel_y = linear_speed * math.sin(math.radians(robot_angle))
+        
+        robot_x += vel_x
+        robot_y += vel_y
+        
+        # Batasi robot dalam layar
+        robot_x = max(robot_length/2, min(SIMULATOR_WIDTH - robot_length/2, robot_x))
+        robot_y = max(robot_width/2, min(SIMULATOR_HEIGHT - robot_width/2, robot_y))
+        
+        # Gambar simulator
+        simulator_screen.fill(WHITE)
+        
+        # Gambar grid
+        for x in range(0, SIMULATOR_WIDTH, 50):
+            pygame.draw.line(simulator_screen, GRAY, (x, 0), (x, SIMULATOR_HEIGHT))
+        for y in range(0, SIMULATOR_HEIGHT, 50):
+            pygame.draw.line(simulator_screen, GRAY, (0, y), (SIMULATOR_WIDTH, y))
+        
+        draw_robot()
+        
+        # Tampilkan status
+        font = pygame.font.SysFont(None, 36)
+        pose_text = font.render(f"Pose: {pose}", True, BLACK)
+        simulator_screen.blit(pose_text, (10, 10))
+        
+        pygame.display.flip()
+        clock.tick(30)
